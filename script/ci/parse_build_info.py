@@ -23,6 +23,7 @@ Once version is available, then parse and generate a json string with below deta
 This generated commands/parameter can be used in any CI/script to execute build-script or docker image.
 '''
 
+
 import os
 import json
 import re
@@ -69,23 +70,26 @@ else:
 
 package_name = package_name.lower()
 
-image_name = "ibmcom/" + package_name + "-ppc64le:" + version.replace('/', '_')
+image_name = f"ibmcom/{package_name}-ppc64le:" + version.replace('/', '_')
 version_key =  None
 branch = "master"
 build_scipt = ''
-raw_url_prefix = "https://raw.githubusercontent.com/ppc64le/build-scripts/" + branch + "/" + "/" .join([package_name[0], package_name])
+raw_url_prefix = (
+    f"https://raw.githubusercontent.com/ppc64le/build-scripts/{branch}/"
+    + "/".join([package_name[0], package_name])
+)
 
 config_json = {}
 
 config_file_name = f"{ROOT}{path_separator}{package_name[0]}{path_separator}{package_name}{path_separator}build_info.json"
-if(os.path.exists(config_file_name)):
+if (os.path.exists(config_file_name)):
     # Read the local file if available.
     f = open(config_file_name, 'r')
     contents = f.read()
     config_json = json.loads(contents)
 else:
     # If local file not available, read it from github.
-    github_url = raw_url_prefix + "/build_info.json"
+    github_url = f"{raw_url_prefix}/build_info.json"
     r = requests.get(github_url)
     if r.status_code == 200:
         config_json = r.json()
@@ -103,8 +107,7 @@ if config_json:
         for key in config_json.keys():
             if version_key:
                 break
-            sub_keys = [x.strip() for x in key.split(',')]
-            if sub_keys:
+            if sub_keys := [x.strip() for x in key.split(',')]:
                 if version in sub_keys:
                     version_key = key
                     break
@@ -120,7 +123,7 @@ if config_json:
     # Considering, latest version info added at end.
     if not version_key:
         version_key = config_json.keys()[-1]
-    
+
     version_config = config_json[version_key]
 
     if build_details[DOCKER_BUILD] and DIR not in version_config:
@@ -139,14 +142,14 @@ if config_json:
         for arg_name in version_config[ARGS].keys():
             build_details[ARGS][arg_name] = version_config[ARGS][arg_name]
             build_args += f" --build-args {arg_name}={version_config[ARGS][arg_name]} "
-    
-    
+
+
     build_scipt = version_config[BUILD_SCRIPT].strip() if BUILD_SCRIPT in version_config else build_scipt
     if not build_scipt and build_details[VALIDATE_BUILD_SCRIPT]:
         print("Build-script is not mentioned...")
         exit(1)
 
-    build_details[BUILD_SCRIPT_RAW_URL] = raw_url_prefix + f"/{build_scipt}"
+    build_details[BUILD_SCRIPT_RAW_URL] = f"{raw_url_prefix}/{build_scipt}"
     # Generating docker build command with
     #    --build-args with ARG values
     #    --build-args with PATCH values

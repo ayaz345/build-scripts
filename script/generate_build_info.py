@@ -117,7 +117,7 @@ for file in file_list:
         with open(file, 'r') as f:
             contents = f.readlines()
             docker_details['dir'] = os.path.basename(os.path.dirname(file))
-            
+
             for line in contents:
                 if line.lower().startswith('from '):
                     docker_details ['base_image'] = line.split(' ')[1].strip()
@@ -134,14 +134,16 @@ for file in file_list:
 
 
 final_json = {
-    "package_name" : package_name,
+    "package_name": package_name,
     "github_url": github_url,
-    "version": dockerfile_versions[-1]['version'] if dockerfile_versions else build_scripts_versions[-1]['version'],
+    "version": dockerfile_versions[-1]['version']
+    if dockerfile_versions
+    else build_scripts_versions[-1]['version'],
     "default_branch": get_default_branch(github_url),
     "build_script": default_build_script,
     "package_dir": dir_name.replace(ROOT, '').strip(path_separator),
-    "docker_build": True if dockerfile_versions else False,
-    "validate_build_script": True if build_scripts_versions else False
+    "docker_build": bool(dockerfile_versions),
+    "validate_build_script": bool(build_scripts_versions),
 }
 
 for entry in dockerfile_versions:
@@ -166,7 +168,7 @@ for entry in dockerfile_versions:
     for build_script_entry in build_scripts_versions:
         if build_script_entry['version'] in version:
             final_json[version]['build_script'] = build_script_entry['file']
-    
+
     for k in entry:
         if 'patch' in k.lower():
             final_json[version][k] = entry[k]

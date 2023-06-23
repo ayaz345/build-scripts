@@ -13,6 +13,27 @@ HOME = os.getcwd()
 
 package_data = {}
 def trigger_basic_validation_checks(file_name):
+    # Check if apache license file exists
+    file_parts = file_name.split('/')
+    licence_file = f'{HOME}/{"/".join(file_parts[:-1])}/LICENSE'
+    if not os.path.exists(licence_file):
+        raise ValueError("License file cannot be not found.")
+
+    # Check if components of Doc string are available.
+    script_path = f"{HOME}/{file_name}"
+
+    #Check build script line endings
+    eof = os.popen(f'file {script_path}').read()
+    if 'crlf' in eof.lower():
+        raise EOFError(
+            f"Build script {file_name} contains windows line endings(CRLF), Please update build script with Linux based line endings."
+        )
+
+    if not os.path.exists(script_path):
+        raise ValueError("Build script not found.")
+    all_lines = []
+    with open(script_path) as script_file_handler:
+        all_lines = script_file_handler.readlines()
     key_checks = {
         "# Package": "package_name",
         "# Version": "package_version",
@@ -23,69 +44,48 @@ def trigger_basic_validation_checks(file_name):
         "# Travis-Check": "travis_check"
     }
     matched_keys = []
-    # Check if apache license file exists
-    file_parts = file_name.split('/')
-    licence_file = "{}/{}/LICENSE".format(HOME, "/".join(file_parts[:-1]))
-    if not os.path.exists(licence_file):
-        raise ValueError("License file cannot be not found.")
-
-    # Check if components of Doc string are available.
-    script_path = "{}/{}".format(HOME, file_name)
-    
-    #Check build script line endings 
-    eof=os.popen('file '+script_path).read()
-    if 'crlf' in eof.lower():
-        raise EOFError("Build script {} contains windows line endings(CRLF), Please update build script with Linux based line endings.".format(file_name))
-
-    if os.path.exists(script_path):
-        all_lines = []
-        with open(script_path) as script_file_handler:
-            all_lines = script_file_handler.readlines()
-        # from build script file extract package_name, package_version, packag_url, distro_name and distro_version
-        for line in all_lines:
-            try:
-                for key in key_checks:
-                    if key == '# Tested on' and key in line:
-                        matched_keys.append(key)
-                        distro_data = line.split(':')[-1].strip()
-                        distro_data = distro_data.split(' ')
-                        package_data["distro_name"] = distro_data[0]
-                        package_data["distro_version"] = distro_data[-1]
-                    elif key in line:
-                        matched_keys.append(key)
-                        package_data[key_checks[key]] = line.split(':',1)[-1].strip()
-            except IndexError as ie:
-                raise IndexError(str(ie))
+    # from build script file extract package_name, package_version, packag_url, distro_name and distro_version
+    for line in all_lines:
+        try:
+            for key in key_checks:
+                if key == '# Tested on' and key in line:
+                    matched_keys.append(key)
+                    distro_data = line.split(':')[-1].strip()
+                    distro_data = distro_data.split(' ')
+                    package_data["distro_name"] = distro_data[0]
+                    package_data["distro_version"] = distro_data[-1]
+                elif key in line:
+                    matched_keys.append(key)
+                    package_data[key_checks[key]] = line.split(':',1)[-1].strip()
+        except IndexError as ie:
+            raise IndexError(str(ie))
         # check if all required keys are available
-        if set(matched_keys) == set(list(key_checks.keys())):
-            print("Basic Checks passed")
-            return True
-        else:
-            print("Basic Validation Checks Failed!!!")
-            print("Requried keys: {}".format(",".join(key_checks.keys())))
-            print("Found keys: {}".format(",".join(matched_keys)))
-            print("Missing required keys: {}".format(",".join(set(key_checks.keys())-set(matched_keys))))
-            raise ValueError(f"Basic Validation Checks Failed for {file_name} !!!")
+    if set(matched_keys) == set(list(key_checks.keys())):
+        print("Basic Checks passed")
+        return True
     else:
-        raise ValueError("Build script not found.")
+        print("Basic Validation Checks Failed!!!")
+        print(f'Requried keys: {",".join(key_checks.keys())}')
+        print(f'Found keys: {",".join(matched_keys)}')
+        print(
+            f'Missing required keys: {",".join(set(key_checks.keys()) - set(matched_keys))}'
+        )
+        raise ValueError(f"Basic Validation Checks Failed for {file_name} !!!")
 
 def trigger_script_validation_checks(file_name, image_name = "registry.access.redhat.com/ubi8/ubi:8.7"):
     # Spawn a container and pass the build script
     client = docker.DockerClient(base_url='unix://var/run/docker.sock')
     st = os.stat(file_name)
     current_dir = os.getcwd()
-    os.chmod("{}/{}".format(current_dir, file_name), st.st_mode | stat.S_IEXEC)
+    os.chmod(f"{current_dir}/{file_name}", st.st_mode | stat.S_IEXEC)
     # Let the container run in non detach mode, as we need to delete the container on operation completion
     container = client.containers.run(
         image_name,
-        "/home/tester/{}".format(file_name),
-        #"cat /home/tester/{}".format(file_name),
-        network = 'host',
-        detach = True,
-        volumes = {
-            current_dir : {'bind': '/home/tester/', 'mode': 'rw'}
-        },
-        stderr = True, # Return logs from STDERR
+        f"/home/tester/{file_name}",
+        network='host',
+        detach=True,
+        volumes={current_dir: {'bind': '/home/tester/', 'mode': 'rw'}},
+        stderr=True,
     )
     result = container.wait()
     try:
@@ -112,16 +112,12 @@ def validate_build_info_file(file_name):
         print("Valid file")
         return True
     except Exception as e:
-        print(str(e))
+        print(e)
         print(f"Failed to load build_info file at {file_name} !")
         raise e
 
 def trigger_build_validation_travis(pr_number):
-    pull_request_file_url = "https://api.github.com/repos/{}/{}/pulls/{}/files".format(
-        GITHUB_BUILD_SCRIPT_BASE_OWNER,
-        GITHUB_BUILD_SCRIPT_BASE_REPO,
-        pr_number
-    )
+    pull_request_file_url = f"https://api.github.com/repos/{GITHUB_BUILD_SCRIPT_BASE_OWNER}/{GITHUB_BUILD_SCRIPT_BASE_REPO}/pulls/{pr_number}/files"
     validated_file_list = []
     response = requests.get(pull_request_file_url).json()
     # Trigger validation for all shell scripts
@@ -133,25 +129,27 @@ def trigger_build_validation_travis(pr_number):
         if file_name.endswith('.sh') and "dockerfile" not in file_name.lower() and status != "removed":
             # perform basic validation check
             trigger_basic_validation_checks(file_name)
-            
+
             #check Travis-check from package header  
             travis_check=package_data['travis_check'].lower()
             if travis_check=="true":
                 # Build/test script files
                 trigger_script_validation_checks(file_name)
             else:
-                print("Skipping Build script validation for {} as Travis-Check flag is set to False".format(file_name))
+                print(
+                    f"Skipping Build script validation for {file_name} as Travis-Check flag is set to False"
+                )
             # Keep track of validated files.
             validated_file_list.append(file_name)
         elif file_name.lower().endswith('build_info.json') and status != "removed":
             validate_build_info_file(file_name)
             # Keep track of validated files.
             validated_file_list.append(file_name)
-        
-        
 
-    
-    if len(validated_file_list) == 0 :
+
+
+
+    if not validated_file_list:
         print("No scripts available for validation.")
     else:
         print("Validated below scripts:")

@@ -18,23 +18,23 @@ names = [test_name for test_name in dir(callback_tests) if test_name.startswith(
 for name in names:
 
     print('')
-    print('Processing test {}'.format(name))
+    print(f'Processing test {name}')
 
     bare_name = name[len('test_callback_plugin_'):]
-    if not os.path.exists('{}/{}'.format(BASE_DIR, bare_name)):
-        os.makedirs('{}/{}'.format(BASE_DIR, bare_name))
+    if not os.path.exists(f'{BASE_DIR}/{bare_name}'):
+        os.makedirs(f'{BASE_DIR}/{bare_name}')
     the_test = getattr(callback_tests, name)
     for test_marker in the_test.pytestmark:
         if test_marker.name == 'parametrize':
             inputs = test_marker.args[1]
             break
     else:
-        raise Exception('Test {} not parameterized in expected way.'.format(the_test))
+        raise Exception(f'Test {the_test} not parameterized in expected way.')
 
     for input in inputs:
         for k, v in input.items():
-            filename = '{}/{}/{}'.format(BASE_DIR, bare_name, k)
-            print('  Writing file {}'.format(filename))
+            filename = f'{BASE_DIR}/{bare_name}/{k}'
+            print(f'  Writing file {filename}')
             if not os.path.exists(filename):
                 with open(filename, 'w') as f:
                     f.write(v)

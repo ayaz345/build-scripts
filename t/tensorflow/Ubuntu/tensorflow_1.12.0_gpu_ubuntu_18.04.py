@@ -126,8 +126,8 @@ def execute_cmd(list, step):
     @param step str name of the comand to be executed
     '''
 
-    print('Step: %s' % (step))
-    
+    print(f'Step: {step}')
+
     for item in list:
         run_cmd(item)
 
@@ -141,8 +141,8 @@ def set_environment():
     for GPU model to Compute Capabilities mapping.
     '''
 
-    f= open('tensorflow/.bazelrc',"w+")
-    f.write("build --action_env PYTHON_BIN_PATH='/usr/bin/python'\n\
+    with open('tensorflow/.bazelrc',"w+") as f:
+        f.write("build --action_env PYTHON_BIN_PATH='/usr/bin/python'\n\
 build --action_env PYTHON_LIB_PATH='/usr/local/lib/python2.7/site-packages'\n\
 build --python_path='/usr/bin/python'\n\
 build:xla --define with_xla_support=false\n\
@@ -165,8 +165,7 @@ build:opt --copt=-mcpu=power8\n\
 build:opt --copt=-mtune=power8\n\
 build:opt --define with_default_optimizations=true\n\
 build --strip=always\n\
-build --spawn_strategy=standalone")
-    f.close() 
+build --spawn_strategy=standalone") 
 
 def run_build(list, dir):
     '''
@@ -176,7 +175,7 @@ def run_build(list, dir):
     '''
     build = subprocess.Popen(list, cwd=dir)
     build.wait()
-    if not build.returncode==0:
+    if build.returncode != 0:
         print('Exiting due to failure in command: {0}'.format(list))
         sys.exit(1)
 

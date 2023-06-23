@@ -22,9 +22,7 @@ if 'GEN_CERT' in os.environ:
     try:
         os.makedirs(dir_name)
     except OSError as exc:  # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(dir_name):
-            pass
-        else:
+        if exc.errno != errno.EEXIST or not os.path.isdir(dir_name):
             raise
 
     # Generate an openssl.cnf file to set the distinguished name
